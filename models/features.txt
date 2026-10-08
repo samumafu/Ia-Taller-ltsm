@@ -1,0 +1,15 @@
+demanda_mw
+temperatura_c
+humedad_pct
+viento_kmh
+radiacion_wm2
+precipitacion_mm
+precio_kwh
+hora
+dia_semana
+fin_semana
+festivo
+mes
+periodo_dia_mañana
+periodo_dia_tarde
+periodo_dia_noche

@@ -1,0 +1,203 @@
+ANÁLISIS DE RESULTADOS DEL TALLER LSTM
+======================================
+
+Fuentes utilizadas:
+- results/resultados_modelos.csv
+- results/resumen_entrenamiento.csv
+- results/historiales.csv
+
+Las métricas MAE y RMSE están expresadas en MW; MAPE está expresado en porcentaje.
+Los valores loss y val_loss corresponden al MSE del target normalizado, por lo que
+no deben compararse numéricamente de forma directa con los errores en MW.
+
+1. ¿Por qué LSTM es apropiada?
+--------------------------------
+La demanda energética es una serie temporal: el consumo de una hora suele estar
+relacionado con las horas inmediatamente anteriores y con ciclos diarios,
+semanales y estacionales. Una LSTM está diseñada para procesar secuencias en orden
+y mantener información relevante mediante sus compuertas de memoria. Esto permite
+combinar el historial reciente de demanda con temperatura, humedad, viento,
+radiación, precipitación, precio y variables de calendario.
+
+Los resultados respaldan que la aproximación es útil para este conjunto de datos:
+el mejor experimento, LSTM base con ventana de 48 horas, obtuvo MAE=25,107 MW,
+RMSE=36,318 MW, MAPE=4,554 % y R²=0,812 en test. Es decir, explicó alrededor del
+81,2 % de la variabilidad del segmento de prueba. Sin embargo, estos resultados no
+demuestran que LSTM sea superior a cualquier alternativa, porque en el taller no se
+entrenó un baseline ingenuo, un modelo lineal, árboles ni otros modelos de series.
+
+2. ¿Qué efecto tiene cambiar la ventana temporal?
+--------------------------------------------------
+El efecto depende de la arquitectura; una ventana mayor no mejoró automáticamente
+el resultado.
+
+- LSTM base: al pasar de 12 a 24 y 48 horas, el MAE bajó de 29,784 a 27,957 y
+  25,107 MW; el RMSE bajó de 40,962 a 39,290 y 36,318 MW; el MAPE bajó de
+  5,320 % a 5,038 % y 4,554 %; R² subió de 0,761 a 0,780 y 0,812. En este modelo,
+  48 horas aportaron contexto útil, posiblemente al cubrir dos ciclos diarios.
+
+- LSTM profunda: la ventana 12 fue la mejor (MAE=28,192 MW, RMSE=39,330 MW,
+  MAPE=5,033 %, R²=0,780). Las ventanas 24 y 48 empeoraron el MAE hasta 31,762 y
+  31,752 MW, respectivamente, y redujeron R² a 0,735 y 0,733.
+
+- LSTM propuesta: también funcionó mejor con 12 horas (MAE=33,565 MW,
+  RMSE=44,636 MW, R²=0,716). La ventana 24 fue la peor de esta arquitectura
+  (MAE=36,487 MW, RMSE=47,649 MW, R²=0,676); 48 horas recuperó algo, pero siguió
+  por debajo de 12 horas.
+
+Por tanto, una ventana larga puede aportar ciclos adicionales, pero también añade
+información redundante y hace más difícil la optimización, sobre todo en modelos
+más complejos. La longitud debe seleccionarse empíricamente por arquitectura.
+
+3. ¿Existe sobreajuste?
+------------------------
+Sí existen señales de sobreajuste incipiente en varias ejecuciones, aunque fue
+limitado por Early Stopping y la restauración de los mejores pesos.
+
+Los casos más claros son:
+
+- Profunda, ventana 12: el mejor val_loss fue 0,161943 en la época 8. Al terminar
+  en la época 18, loss había bajado a 0,157310, pero val_loss había subido a
+  0,189137. El modelo siguió ajustándose a train mientras empeoraba en validación.
+
+- Profunda, ventana 24: el mejor val_loss fue 0,166623 en la época 11. En la época
+  21, loss llegó a 0,155372 y val_loss empeoró a 0,194675; la brecha final fue
+  aproximadamente 0,0393, la mayor de los nueve experimentos.
+
+- Propuesta, ventana 12: el mínimo de validación fue 0,168494 en la época 10 y
+  terminó con val_loss=0,185073 en la época 20, mientras loss siguió descendiendo.
+
+En los modelos base el deterioro fue menor. Por ejemplo, base con ventana 48 tuvo
+su mínimo de validación en la época 2 (0,166901) y terminó en 0,168450; además fue
+el mejor modelo en test. Que val_loss sea a veces menor que loss no elimina la
+posibilidad de sobreajuste: durante entrenamiento Dropout está activo en los
+modelos que lo incluyen y puede elevar loss, mientras se desactiva en validación.
+La evidencia principal es la trayectoria divergente después de la mejor época.
+
+4. ¿Qué es y qué efecto tiene Dropout?
+---------------------------------------
+Dropout es una técnica de regularización que desactiva aleatoriamente una fracción
+de las unidades durante cada actualización de entrenamiento. En las arquitecturas
+profunda y propuesta se utilizó Dropout(0.2), es decir, una tasa del 20 %. Su
+objetivo es reducir la dependencia excesiva entre neuronas y mejorar la capacidad
+de generalización. Durante validación y predicción Dropout se desactiva.
+
+Los resultados no permiten aislar causalmente el efecto de Dropout porque las
+arquitecturas también cambian en número de capas y neuronas. Se observa que la
+profunda con ventana 12 superó a la base con ventana 12 (MAE 28,192 frente a
+29,784 MW), por lo que la combinación de mayor capacidad y regularización fue útil
+en ese caso. Sin embargo, con ventanas 24 y 48 la base superó a los modelos con
+Dropout, y la propuesta obtuvo los peores resultados globales. Por ello, Dropout
+puede ayudar a controlar sobreajuste, pero no garantiza mejor rendimiento ni
+compensa por sí solo una arquitectura demasiado compleja.
+
+5. ¿Qué es y qué efecto tiene Early Stopping?
+----------------------------------------------
+Early Stopping detiene el entrenamiento cuando la métrica vigilada deja de mejorar
+durante un número definido de épocas. En este proyecto se monitorizó val_loss con
+patience=10 y restore_best_weights=True. Esto significa que cada modelo pudo pasar
+hasta diez épocas sin una nueva mejora y, al terminar, recuperó los pesos de la
+época con menor val_loss.
+
+Su efecto fue evidente: ningún experimento consumió las 100 épocas máximas. Los
+entrenamientos terminaron entre 11 y 22 épocas. Por ejemplo, profunda con ventana
+24 se detuvo en 21 épocas después de que su mejor resultado apareciera en la época
+11; propuesta con ventana 48 se detuvo en 21 después de su mínimo en la época 11.
+Esto redujo tiempo de cómputo y evitó guardar los pesos de las últimas épocas, que
+en varios casos generalizaban peor.
+
+6. ¿Más neuronas implican necesariamente mejores resultados?
+-------------------------------------------------------------
+No. La arquitectura base fue, en promedio, la mejor pese a ser la más sencilla.
+Promediando sus tres ventanas obtuvo MAE=27,616 MW, RMSE=38,857 MW,
+MAPE=4,970 % y R²=0,784. La profunda promedió MAE=30,569 MW,
+RMSE=41,903 MW, MAPE=5,448 % y R²=0,749. La propuesta, que añade una capa Dense
+de 32 unidades además de las dos LSTM, fue la peor en promedio: MAE=35,250 MW,
+RMSE=46,325 MW, MAPE=6,281 % y R²=0,694.
+
+También el mejor resultado individual fue la base con ventana 48, no la red con
+más capas. Más neuronas aumentan la capacidad para representar relaciones
+complejas, pero también elevan el costo, dificultan la optimización y aumentan el
+riesgo de aprender ruido. El tamaño adecuado depende del volumen y complejidad de
+los datos, la regularización y la ventana utilizada.
+
+7. ¿Qué modelo recomendaría para producción y por qué?
+-------------------------------------------------------
+Recomendaría la LSTM base con ventana de 48 horas. Fue el mejor de los nueve
+experimentos en todas las métricas de test relevantes:
+
+- MAE: 25,107 MW
+- MSE: 1319,011 MW²
+- RMSE: 36,318 MW
+- MAPE: 4,554 %
+- R²: 0,812
+
+Además, es más sencilla que las arquitecturas profunda y propuesta, terminó en
+12 épocas y tardó 31,94 segundos en entrenarse. Esta combinación ofrece el mejor
+equilibrio observado entre error, generalización, costo computacional y facilidad
+de mantenimiento. Aunque la profunda con ventana 12 tuvo el mejor val_loss
+normalizado (0,161943), en test fue inferior a base-48: MAE=28,192 MW,
+RMSE=39,330 MW y R²=0,780. Para una decisión de producción debe priorizarse la
+generalización en datos no vistos, manteniendo test sin usar para reajustes.
+
+Antes de desplegarlo sería necesario validar latencia, consumo de recursos,
+robustez ante cambio de distribución y rendimiento mediante backtesting en más
+periodos. La recomendación se limita a los nueve experimentos evaluados.
+
+8. ¿Qué variables pueden influir más en la demanda?
+----------------------------------------------------
+Según las variables disponibles, es razonable esperar influencia de:
+
+- demanda_mw reciente, por autocorrelación y continuidad del consumo;
+- hora y periodo_dia, por los ciclos diarios de actividad;
+- dia_semana, fin_semana y festivo, por cambios de comportamiento laboral y
+  residencial;
+- mes, como aproximación a estacionalidad;
+- temperatura_c y humedad_pct, por el uso de climatización;
+- radiacion_wm2, precipitacion_mm y viento_kmh, por su relación con condiciones
+  meteorológicas y patrones de actividad;
+- precio_kwh, si existe respuesta del consumo al precio.
+
+Esta lista es una interpretación razonable del dominio, no un ranking demostrado
+por el experimento. No se realizó análisis formal de importancia, permutación,
+SHAP, ablación de variables ni comparación controlada entre subconjuntos de
+features. Por tanto, no puede afirmarse con estos resultados qué variable fue la
+más importante ni cuánto aportó cada una. Además, hora y periodo_dia representan
+información relacionada, por lo que sus efectos pueden ser redundantes.
+
+9. ¿Qué limitaciones tiene el modelo?
+-------------------------------------
+- Los datos cubren aproximadamente dos años y la evaluación usa un único bloque
+  final de test; no se realizó validación temporal con múltiples ventanas o
+  backtesting.
+- Sólo se predice un paso adelante. Los resultados no describen el desempeño para
+  horizontes de varias horas o días.
+- No se comparó contra baselines simples ni contra otras familias de modelos, por
+  lo que no se puede cuantificar la ventaja específica de LSTM.
+- Se entrenó una sola vez cada combinación. La inicialización y el entrenamiento
+  son estocásticos; no hay distribución de resultados entre varias semillas.
+- Algunas observaciones fueron interpoladas durante la limpieza. Aunque los huecos
+  eran cortos y la decisión fue documentada, la interpolación puede suavizar la
+  variabilidad real.
+- El conjunto no incorpora explícitamente actividad económica, demanda industrial,
+  población, eventos extraordinarios, cambios tarifarios estructurales ni otras
+  variables externas que podrían afectar el consumo.
+- No se calcularon intervalos de predicción ni incertidumbre. Una predicción puntual
+  no informa el riesgo alrededor del valor estimado.
+- No se realizó análisis formal de importancia de variables ni explicabilidad.
+- El rendimiento puede degradarse ante cambios de hábitos, clima, precios o
+  infraestructura; sería necesario monitorizar deriva y reentrenar de forma
+  controlada.
+- La recomendación se basa en precisión y complejidad observadas, pero aún faltan
+  pruebas operativas de latencia, memoria, estabilidad y comportamiento ante datos
+  fuera de rango.
+
+CONCLUSIÓN GENERAL
+------------------
+Las LSTM lograron resultados útiles para predicción horaria, pero aumentar la
+complejidad no produjo una mejora automática. La ventana de 48 horas benefició de
+forma clara a la arquitectura base, que alcanzó el mejor equilibrio del estudio
+con MAPE=4,554 % y R²=0,812. Las curvas mostraron sobreajuste incipiente en varios
+modelos complejos, controlado por Dropout y, especialmente, por Early Stopping.
+Con la evidencia disponible, base-48 es la opción recomendada, sujeta a validación
+temporal adicional, comparación con baselines y monitorización antes de producción.

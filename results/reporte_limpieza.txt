@@ -1,0 +1,110 @@
+REPORTE DE LIMPIEZA DEFINITIVA
+================================================================================
+
+1. FILAS Y ESTRUCTURA
+Filas iniciales del CSV original: 17550
+Duplicados encontrados/eliminados: 30/30
+Timestamps invalidos encontrados/eliminados: 0/0
+Filas tras limpieza base: 17520
+Filas eliminadas en el cierre: 1
+Filas finales: 17519
+
+2. VALORES FALTANTES POR COLUMNA ANTES
+  - timestamp: 0
+  - demanda_mw: 0
+  - temperatura_c: 70
+  - humedad_pct: 70
+  - viento_kmh: 70
+  - radiacion_wm2: 0
+  - precipitacion_mm: 0
+  - precio_kwh: 70
+  - hora: 0
+  - dia_semana: 0
+  - fin_semana: 0
+  - festivo: 0
+  - mes: 0
+  - periodo_dia: 0
+  - demanda_objetivo: 1
+Total antes: 281
+
+3. VALORES CORREGIDOS Y RECONSTRUIDOS
+periodo_dia: 00-05=madrugada, 06-11=mañana, 12-17=tarde, 18-23=noche.
+periodo_dia reconstruidos=17520; inconsistencias_semanticas_corregidas=60; textos_modificados=80
+hora: reconstruidos=17520; corregidos=0
+dia_semana: reconstruidos=17520; corregidos=0
+fin_semana: reconstruidos=17520; corregidos=0
+mes: reconstruidos=17520; corregidos=0
+festivo conservado: no es derivable sin calendario oficial y jurisdiccion.
+humedad_pct fuera de [0,100] convertida a NaN: 9
+  - 2025-07-12 22:00:00: humedad_pct=116.56
+  - 2025-07-14 02:00:00: humedad_pct=-2.35
+  - 2025-12-11 05:00:00: humedad_pct=127.57
+  - 2026-01-19 13:00:00: humedad_pct=114.2
+  - 2026-02-06 03:00:00: humedad_pct=-0.05
+  - 2026-05-26 01:00:00: humedad_pct=110.36
+  - 2026-08-15 21:00:00: humedad_pct=115.19
+  - 2026-08-25 12:00:00: humedad_pct=129.69
+  - 2026-08-28 07:00:00: humedad_pct=120.81
+viento_kmh negativo convertido a NaN: 8
+  - 2025-04-08 23:00:00: viento_kmh=-8.6
+  - 2025-05-03 11:00:00: viento_kmh=-12.2
+  - 2025-05-21 03:00:00: viento_kmh=-9.38
+  - 2026-01-23 02:00:00: viento_kmh=-0.82
+  - 2026-05-27 20:00:00: viento_kmh=-4.46
+  - 2026-06-15 09:00:00: viento_kmh=-1.18
+  - 2026-09-19 02:00:00: viento_kmh=-1.58
+  - 2026-12-09 20:00:00: viento_kmh=-5.31
+
+4. INTERPOLACIONES LOCALES
+Interpolacion lineal por timestamp solo para huecos interiores de hasta 2 horas con extremos validos. Sin extrapolacion ni estadisticas globales.
+temperatura_c: antes=70, huecos=69, longitud_maxima=2, interpolados=70, despues=0
+humedad_pct: antes=79, huecos=79, longitud_maxima=1, interpolados=79, despues=0
+viento_kmh: antes=78, huecos=78, longitud_maxima=1, interpolados=78, despues=0
+precio_kwh: antes=70, huecos=70, longitud_maxima=1, interpolados=70, despues=0
+
+5. FILAS ELIMINADAS
+Solo se eliminan filas que aun tienen NaN requerido. La ultima hora no puede etiquetarse porque no existe demanda de la hora siguiente.
+  - 2026-12-31 23:00:00
+
+6. ANOMALIAS CONSERVADAS Y JUSTIFICACION
+Precios negativos conservados: 3. Pueden ser validos en mercados electricos y no hay evidencia interna de corrupcion.
+  - 2025-10-24 06:00:00: precio_kwh=-4.17
+  - 2025-12-06 12:00:00: precio_kwh=-3.39
+  - 2026-09-30 10:00:00: precio_kwh=-3.18
+Otros extremos se conservaron: un extremo estadistico sin regla fisica o evidencia externa no demuestra que el dato sea erroneo.
+
+7. VERIFICACION DE demanda_objetivo
+Regla: demanda_objetivo(t) = demanda_mw(t + 1 hora).
+Inconsistencias detectadas y corregidas: 40
+Etiquetas reconstruidas: 17519
+Errores finales por timestamp + 1 hora: 0
+demanda_objetivo se reserva como y y no debe incluirse en X.
+
+8. VALORES FALTANTES POR COLUMNA DESPUES
+  - timestamp: 0
+  - demanda_mw: 0
+  - temperatura_c: 0
+  - humedad_pct: 0
+  - viento_kmh: 0
+  - radiacion_wm2: 0
+  - precipitacion_mm: 0
+  - precio_kwh: 0
+  - hora: 0
+  - dia_semana: 0
+  - fin_semana: 0
+  - festivo: 0
+  - mes: 0
+  - periodo_dia: 0
+  - demanda_objetivo: 0
+Total despues: 0
+
+9. VALIDACION FINAL
+Rango temporal: 2025-01-01 00:00:00 a 2026-12-31 22:00:00
+Timestamp ordenado ascendentemente: True
+Timestamps duplicados: 0
+Saltos temporales distintos de una hora: 0
+Humedad dentro de [0,100]: True
+Viento mayor o igual a 0: True
+
+No se aplicaron normalizacion, division train/validation/test, ventanas,
+modelos LSTM ni entrenamiento.

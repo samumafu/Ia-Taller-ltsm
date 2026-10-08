@@ -1,0 +1,107 @@
+REPORTE DE PREPARACION DE DATOS PARA LSTM
+================================================================================
+
+1. CARGA Y VALIDACION
+Registros: 17519
+Rango: 2025-01-01 00:00:00 a 2026-12-31 22:00:00
+Timestamp ascendente: True
+Timestamps unicos: True
+Frecuencia horaria continua: True
+NaN en dataset limpio: 0
+
+2. TARGET
+Target: demanda_objetivo
+Regla: demanda_objetivo[t] = demanda_mw[t+1]
+Relaciones comparables: 17518
+Relaciones correctas: 17518
+Errores: 0
+Etiquetas no verificables dentro del CSV por ausencia de t+1: 1
+demanda_objetivo no aparece en X: True
+
+3. FEATURES ORIGINALES SELECCIONADAS
+  - demanda_mw
+  - temperatura_c
+  - humedad_pct
+  - viento_kmh
+  - radiacion_wm2
+  - precipitacion_mm
+  - precio_kwh
+  - hora
+  - dia_semana
+  - fin_semana
+  - festivo
+  - mes
+  - periodo_dia
+
+4. FEATURES FINALES DESPUES DE ONE-HOT
+Categoria base eliminada de periodo_dia: madrugada
+  01. demanda_mw
+  02. temperatura_c
+  03. humedad_pct
+  04. viento_kmh
+  05. radiacion_wm2
+  06. precipitacion_mm
+  07. precio_kwh
+  08. hora
+  09. dia_semana
+  10. fin_semana
+  11. festivo
+  12. mes
+  13. periodo_dia_mañana
+  14. periodo_dia_tarde
+  15. periodo_dia_noche
+Cantidad final de features: 15
+
+5. DIVISION CRONOLOGICA ANTES DE VENTANAS
+train: registros=12263, inicio=2025-01-01 00:00:00, fin=2026-05-26 22:00:00
+validation: registros=2627, inicio=2026-05-26 23:00:00, fin=2026-09-13 09:00:00
+test: registros=2629, inicio=2026-09-13 10:00:00, fin=2026-12-31 22:00:00
+max(timestamp_train) < min(timestamp_validation): True
+max(timestamp_validation) < min(timestamp_test): True
+
+6. NORMALIZACION SIN FUGA
+scaler_X.fit y scaler_y.fit ejecutados solo con train: True (12263 registros)
+Validation y test procesados solo con transform: True
+Media y desviacion (scale_) de scaler_X calculadas en train:
+  - demanda_mw: media=633.222008481, desviacion=101.9943786
+  - temperatura_c: media=18.8100053005, desviacion=5.65483021898
+  - humedad_pct: media=72.2109842616, desviacion=14.7907456824
+  - viento_kmh: media=11.0654179238, desviacion=4.96589680726
+  - radiacion_wm2: media=201.907537307, desviacion=257.088003903
+  - precipitacion_mm: media=0.953581505341, desviacion=2.08532979422
+  - precio_kwh: media=24.6131987564, desviacion=5.41507427304
+  - hora: media=11.4990622197, desviacion=6.92168973095
+  - dia_semana: media=3.00016309223, desviacion=1.99999999335
+  - fin_semana: media=0.285737584604, desviacion=0.45176500235
+  - festivo: media=0.0156568539509, desviacion=0.12414393612
+  - mes: media=5.50297643317, desviacion=3.41580911126
+  - periodo_dia_mañana: media=0.250020386529, desviacion=0.43302447142
+  - periodo_dia_tarde: media=0.250020386529, desviacion=0.43302447142
+  - periodo_dia_noche: media=0.249938840414, desviacion=0.43297738563
+scaler_y: media=633.24120199, desviacion=101.991443557
+
+7. SHAPES DE VENTANAS
+Ventana 12 horas:
+  X_train=(12252, 12, 15); y_train=(12252, 1)
+  X_val=(2627, 12, 15); y_val=(2627, 1)
+  X_test=(2629, 12, 15); y_test=(2629, 1)
+Ventana 24 horas:
+  X_train=(12240, 24, 15); y_train=(12240, 1)
+  X_val=(2627, 24, 15); y_val=(2627, 1)
+  X_test=(2629, 24, 15); y_test=(2629, 1)
+Ventana 48 horas:
+  X_train=(12216, 48, 15); y_train=(12216, 1)
+  X_val=(2627, 48, 15); y_val=(2627, 1)
+  X_test=(2629, 48, 15); y_test=(2629, 1)
+
+8. COMPROBACIONES AUTOMATICAS
+Ausencia de NaN en matrices y ventanas: True
+Ausencia de infinitos en matrices y ventanas: True
+Mismo numero de features en todos los conjuntos: True
+Cada X.shape[1] coincide con su ventana: True
+Separacion cronologica estricta: True
+Ningun input supera el timestamp t de su target t+1: True
+Contexto historico previo permitido en validation y test: True
+demanda_objetivo ausente de X: True
+
+No se implementaron modelos, entrenamiento, metricas ni graficas.
