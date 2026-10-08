@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 from tensorflow import keras
 
+from src.modelos import crear_modelo
 from src.preparacion import (
     FEATURES_NUMERICAS,
     FEATURES_ORIGINALES,
@@ -57,7 +58,6 @@ def cargar_artefactos() -> tuple[keras.Model, object, object, object, list[str]]
     faltantes = [str(ruta) for ruta in rutas if not ruta.exists()]
     exigir(not faltantes, f"Faltan artefactos requeridos: {faltantes}")
 
-    modelo = keras.models.load_model(RUTA_MODELO, compile=False)
     scaler_x = joblib.load(RUTA_SCALER_X)
     scaler_y = joblib.load(RUTA_SCALER_Y)
     encoder = joblib.load(RUTA_ENCODER)
@@ -66,6 +66,13 @@ def cargar_artefactos() -> tuple[keras.Model, object, object, object, list[str]]
         for linea in RUTA_FEATURES.read_text(encoding="utf-8").splitlines()
         if linea.strip()
     ]
+
+    # El archivo fue generado con una version reciente de Keras. Reconstruir la
+    # arquitectura conocida y cargar sus pesos evita depender de detalles de
+    # serializacion entre versiones, sin modificar ni reentrenar el modelo.
+    modelo = crear_modelo("base", (VENTANA, len(features_finales)))
+    modelo.optimizer = None
+    modelo.load_weights(RUTA_MODELO)
 
     exigir(hasattr(scaler_x, "transform"), "scaler_X.pkl no es valido.")
     exigir(hasattr(scaler_y, "inverse_transform"), "scaler_y.pkl no es valido.")
@@ -317,7 +324,7 @@ def main() -> None:
         datos_iniciales,
         num_rows="fixed",
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         height=520,
     )
     st.caption(
